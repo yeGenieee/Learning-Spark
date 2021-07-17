@@ -157,3 +157,19 @@ JavaRDD<String> errorsRDD = inputRDD.filter(
   - RDD 자체를 변경하는 것이 아니라, 완전히 새로운 RDD에 대한 포인터를 리턴한다
   - 따라서, inputRDD는 프로그램 내에서 재사용 가능하다
 
+##### inputRDD를 다시 사용하여 두 결과를 union() 하는 예제
+
+```scala
+val errorsRDD = inputRDD.filter(line => line.contains("error"))
+val warningRDD = inputRDD.filter(line => line.contains("warning"))
+
+val badLinesRDD = errorsRDD.union(warningsRDD)
+```
+
+- union() 은 두 개의 RDD로 작업한다
+- 트랜스포메이션은 입력할 수 있는 RDD 개수에 대한 제한이 없다
+
+  각 트랜스포메이션을 적용해서 새로운 RDD를 얻어내면, 스파크는 각 RDD에 대해 `lineage graph` 라 불리는 관계 그래프를 갖고 있게 된다. 스파크는 이 정보를 활용해서 필요 시, 각 RDD를 재연산하거나 저장된 RDD가 유실될 경우 복구를 하는 등의 경우에 활용한다
+
+
+
