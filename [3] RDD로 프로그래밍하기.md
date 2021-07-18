@@ -173,3 +173,52 @@ val badLinesRDD = errorsRDD.union(warningsRDD)
 
 
 
+### 2. Action
+
+- 드라이버 프로그램에 최종 결과 값을 돌려주거나 외부 저장소에 값을 기록하는 연산 작업
+- 실제로 결과 값을 내야 하므로 트랜스포메이션이 계산을 수행하도록 강제함
+
+#### 로그 파일에서 badLinesRDD 에 대한 정보들을 출력하는 예제
+
+#### 액션을 사용하여 스칼라에서 에러 세기
+
+```scala
+println("Input had " + badLinesRdd.count() + " concerning lines")
+println("Here are 10 examples: ")
+badLinesRDD.take(10).foreach(println)
+```
+
+#### 액션을 사용하여 자바에서 에러 세기
+
+```java
+System.out.println("Input had " + badLinesRDD.count() + "concerning lines");
+System.out.println("Here are 10 examples: ");
+for (String line : badLinesRDD.take(10)) {
+	System.out.println(line);
+}
+```
+
+- take()
+  - RDD의 데이터 일부를 가져오기 위함
+- collect()
+  - 전체 RDD 데이터를 가져옴
+  - RDD를 filter()에 의해 작은 크기의 데이터세트의 RDD로 만든 후 분산이 아닌 로컬에서 데이터를 처리하고 싶을 때 유용함
+  - 이 함수를 사용할 때는, 전체 데이터세트가 사용하는 단일 컴퓨터의 메모리에 올라올 수 있을 정도의 크기여야 함
+  - 데이터세트가 너무 크면 collect()를 사용할 수 없다
+  - RDD가 드라이버 프로그램에 의해 collect()가 불가능한 경우
+    - 대부분 데이터가 너무 크기에 collect()를 사용할 수 없다
+    - 위의 경우, HDFS나 AWS S3 같은 분산 파일 시스템에 데이터를 써서 해결함
+      - RDD의 내용들은 saveAsTextFile() 또는 saveAsSequenceFile() 등의 파일 포맷용 액션을 써서 저장 가능하기 때문
+
+- 새로운 액션을 호출할 때마다 RDD가 **처음부터 (from scratch) 계산**됨
+  - 이를 피하려면 중간 결과를 영속화 (persist) 를 이용
+
+
+
+### 3. Lazy Evaluation
+
+  RDD의 트랜스포메이션은 **lazy** 방식으로 처리가 된다. 이 의미는 스파크가 액션을 만나기 전까지는 실제로 트랜스포메이션을 처리하지 않는다는 말이다. 
+
+- Lazy Evaluation 이란 RDD에 대한 트랜스포메이션을 호출할 때 그 연산이 즉시 수행되는 것이 아니고
+- 대신 내부적으로 스파크는 metadata에 이러한 트랜스포메이션 연산이 호출되었다는 것만 기록을 해둔다
+- RDD가 실제로는 어떤 특정 데이터를 가지고 있는 것이 아닌, 트랜스포메이션들이 생성한 데이터를 어떻게 계산할 지에 대한 명령어들을 갖고 있다고 생각하면 됨
