@@ -217,8 +217,159 @@ for (String line : badLinesRDD.take(10)) {
 
 ### 3. Lazy Evaluation
 
-  RDD의 트랜스포메이션은 **lazy** 방식으로 처리가 된다. 이 의미는 스파크가 액션을 만나기 전까지는 실제로 트랜스포메이션을 처리하지 않는다는 말이다. 
+  RDD의 트랜스포메이션은 **lazy** 방식으로 처리가 된다. 이 의미는 스파크가 액션을 만나기 전까지는 **실제로 트랜스포메이션을 처리하지 않는다**는 말이다. 
 
 - Lazy Evaluation 이란 RDD에 대한 트랜스포메이션을 호출할 때 그 연산이 즉시 수행되는 것이 아니고
 - 대신 내부적으로 스파크는 metadata에 이러한 트랜스포메이션 연산이 호출되었다는 것만 기록을 해둔다
-- RDD가 실제로는 어떤 특정 데이터를 가지고 있는 것이 아닌, 트랜스포메이션들이 생성한 데이터를 어떻게 계산할 지에 대한 명령어들을 갖고 있다고 생각하면 됨
+- RDD가 실제로는 어떤 특정 데이터를 가지고 있는 것이 아닌, 트랜스포메이션들이 생성한 데이터를 **어떻게 계산할 지에 대한 명령어들을 갖고 있다**고 생각하면 됨
+- RDD에 데이터를 로드하는 것도 트랜스포메이션과 마찬가지로 lazy evaluation
+  - sc.textFile() 호출 시, 실제로 필요한 시점이 되기 전까지는 로딩되지 않음
+- 왜 lazy evaluation 을 이용?
+  - 데이터 전달 횟수를 줄이기 위해 이용
+  - 하둡 맵리듀스 같은 시스템에서는 맵리듀스의 데이터 전달 횟수를 줄이기 위해 어떤 식으로 연산을 그룹화할지 고민해야 하는 것이 포인트인데, 맵리듀스 에서는 연산 개수가 많다는 것은 즉 네트워크로 데이터를 전송하는 단계가 많아짐을 의미하기 때문이다
+
+
+
+## 4. 스파크에 함수 전달하기
+
+  대부분의 트랜스포메이션과 액션 일부는 스파크가 실제로 연산할 때 쓰일 함수들을 전달해야 하는 구조를 가진다.
+
+
+
+### 스칼라
+
+- 다른 함수형 API 처럼 인라인으로 정의된 함수나 메소드에 대한 참조, 정적 함수를 전달할 수 있음
+- 주의사항
+  - 전달하는 함수나 참조하는 데이터들이 직렬화 (serialize) 가능해야 함
+  - 객체의 메소드나 필드를 전달하면 전체 객체에 대한 참조 또한 포함됨
+
+#### 스칼라에서의 함수 전달
+
+```scala
+class SearchFunctions(val query: String) {
+	def isMatch(s: String): Boolean = {
+		s.contains(query)
+	}
+  
+  def getMatchesFunctionReference(rdd: RDD[String]): RDD[Boolean] = {
+    // 문제: "isMatch"는 "this.isMatch" 이므로 this의 모든 것이 전달된다
+    rdd.map(isMatch)
+  }
+	
+	def getMatchesFieldReference(rdd: RDD[String]): RDD[Array[String]] = {
+    // 문제: "query"는 "this.query" 이므로 this의 모든 것이 전달된다
+    rdd.map(x => x.split(query))
+	}
+  
+  def getMatchesNoReference(rdd: RDD[String]): RDD[Array[String]] = {
+    // 언존허미 필요한 필드만 추출하여 지역 변수에 저장해 할당한다
+    val query_ = this.query
+    rdd.map(x => x.split(query_))
+  }
+}
+```
+
+- 스칼라에서 `NotSerializableException` 이 발생하는 것은
+  - 직렬화 불가능한 클래스의 메소드나 필드를 참조하는 문제일 가능성이 높다
+  - 최상위 객체의 멤버인 지역 변수나 함수 내에서 전달하는 것은 항상 안전하다
+
+
+
+### 자바
+
+- 자바에서 함수들은 `org.apache.spark.api.java.function` 패키지의 스파크 함수 인터페이스들을 구현한 객체가 된다
+- 함수의 반환 타입에 따라 여러 개의 인터페이스들이 아래와 같이 있다
+
+#### 기본 자바 함수 인터페이스
+
+| 함수 이름             | 구현할 메소드         | 사용법                                                       |
+| --------------------- | --------------------- | ------------------------------------------------------------ |
+| Function<T, R>        | R call(T)             | 입력 하나를 받아 출력 하나를 되돌려줌<br />map() 이나 filter() 같은 연산에 씀 |
+| Function2<T1, T2, R>  | R call(T1, T2)        | 입력 두 개를 받아 하나의 출력을 되돌려 줌<br />aggregate()나 fold() 같은 연산에 씀 |
+| FlatMapFunction<T, R> | Iterable< R > call(T) | 하나의 입력을 받아 0개 이상 여러 개의 출력을 되돌려줌<br />flatMap() 같은 연산에 씀 |
+
+  함수 클래스를 만들기 위해서는 익명 내부 클래스를 인라인으로 만들거나, 이름 있는 클래스를 따로 만들 수 있다.
+
+#### 자바에서 익명 내부 클래스로 함수 전달하기
+
+```java
+RDD<String> errors = lines.filter(new Function<String, Boolean>() {
+	public Boolean call(String x) {
+		return x.contains("error");
+	}
+});
+```
+
+#### 자바에서 이름 있는 클래스로 함수 전달하기
+
+```java
+class ContainsError implments Function<String, Boolean>() {
+	public Boolean call(String x) {
+		return x.contains("error");
+	}
+}
+
+RDD<String> errors = lines.filter(new ContainsError());
+```
+
+- 대규모 프로그램을 작성하는 경우 최상위 레벨의 이름 있는 함수 클래스를 쓰는 것이 코드 가독성이 높음
+
+#### 인자를 가지는 자바 함수 클래스
+
+```java
+class ContainsError implements Function<String, Boolean>() {
+	private String query;
+	
+	public Contains(String query) {
+		this.query = query;
+	}
+	
+	public Boolean call(String x) {
+		return x.contains(query);
+	}
+}
+
+RDD<String> errors = lines.filter(new Contains("error"));
+```
+
+
+
+#### 자바 8의 람다 표현식을 사용한 함수 전달
+
+```java
+RDD<String> errors = lines.filter(s -> s.contains("error"));
+```
+
+ 
+
+## 5. 많이 쓰이는 트랜스포메이션과 액션
+
+  스파크에서 가장 흔하게 쓰이는 트랜스포메이션과 액션들에 대해 알아보자. 
+
+특별한 데이터 타입을 취급하는 RDD를 위한 추가적인 연산들도 존재한다.
+
+- 통계 함수들이나 key / value pair를 다루는 RDD에서 key를 기준으로 데이터를 집계하는 key / value 연산 같은 것들이 있다
+
+
+
+### 기본 RDD
+
+- 데이터에 상관없이 모든 RDD에 대해 적용할 수 있는 트랜스포메이션과 액션들에 대해 먼저 다뤄보자
+
+
+
+#### 데이터 요소 위주 트랜스포메이션
+
+- map()
+- filter()
+
+#### map()
+
+- 함수를 받아 RDD의 각 데이터에 적용하고 결과 RDD에 각 데이터의 새 결과 값을 담는다
+
+
+
+#### filter()
+
+- 함수를 받아 filter() 함수를 통과한 데이터만 RDD에 담아 리턴한다
+
