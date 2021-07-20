@@ -366,10 +366,123 @@ RDD<String> errors = lines.filter(s -> s.contains("error"));
 #### map()
 
 - 함수를 받아 RDD의 각 데이터에 적용하고 결과 RDD에 각 데이터의 새 결과 값을 담는다
+- 반환 타입이 입력 타입과 같지 않아도 됨
+  - ex) RDD 문자열을 갖고 있고, map()이 문자열을 Double 타입으로 리턴한다면, 
+    - 입력 RDD : RDD[String]
+    - 리턴 RDD : RDD[Double]
 
+#### 스칼라에서 map() 으로 RDD의 값들을 제곱하기
 
+```scala
+val input = sc.parallelize(List(1, 2, 3, 4))
+val result = input.map(x => x * x)
+println(result.collect().mkString(","))
+```
+
+#### 자바에서 map() 으로 RDD의 값들을 제곱하기
+
+```java
+JavaRDD<Integer> rdd = sc.parallelize(Arrays.asList(1, 2, 3, 4));
+JavaRDD<Integer> result = rdd.map(new Function<Integer, Integer>() {
+  public Integer call(Integer x) {
+    	return x*x;
+  }
+});
+
+System.out.println(StringUtils.join(result.collect(), ","));
+```
 
 #### filter()
 
 - 함수를 받아 filter() 함수를 통과한 데이터만 RDD에 담아 리턴한다
+
+
+
+#### flatMap()
+
+- 각 입력 데이터에 대해 여러 개의 아웃풋 데이터를 생성해야 할 때 이용
+- map()과 같이 flatMap()에 전달한 함수는 입력 RDD에서 각 데이터마다 호출됨
+  - 함수에서 단일 값을 리턴하는 대신, 반복자 (iterator)를 리턴해야 함
+    - 반복자가 포함된 RDD를 리턴받는 것은 아니고, 반복자가 생성한 데이터들이 담긴 RDD를 받게 됨
+
+#### 스칼라에서 여러 라인을 단어로 분해하는 flatMap() 의 사용 예제
+
+```scala
+val lines = sc.parallelize(List("hello world", "hi"))
+val words = lines.flatMap(line => line.split(" "))
+words.first() // "hello" 를 반환
+```
+
+#### 자바에서 여러 라인을 단어로 분해하는 flatMap()의 사용 예제
+
+```java
+JavaRDD<String> lines = sc.parallelize(Arrays.asList("hello word", "hi"));
+JavaRDD<String> words = lines.flatMap(new FlatMapFunction<String, String>() {
+  public Iterable<String> call(String line) {
+    return Arrays.asList(line.split(" "));
+  }
+});
+words.first(); // "hello" 를 반환
+```
+
+- flatMap()은 반환 받은 iterator들을 펼쳐놓는다
+  - 여러 개의 리스트로 구성된 RDD 대신, 그 각각의 리스트 안에 있는 원소로 구성된 RDD를 반환
+
+### 가상 집합 연산
+
+  RDD는 합집합, 교집합 같은 다양한 수학적 집합 연산을 지원한다. 심지어 RDD가 집합의 형태가 아닌 경우에도 지원한다. 4가지 집합 연산은 연산에 포함된 RDD가 서로 같은 타입이어야 한다.
+
+보통 RDD에서 가장 빈번하게 요구되는 집합의 특성은 중복 데이터가 자주 생기므로 uniqueness가 가장 필요하다. 만약, 중복이 없는 데이터세트를 원한다면, RDD.distinct() 트랜스포메이션을 써서 오직 단일 데이터 요소만 포함한 새로운 RDD를 얻을 수 있다. 그러나, distinct() 는 단일 아이템인지를 비교하기 위해 네트워크로 데이터를 전송해서 비교해야 하므로 연산의 cost가 매우 든다. 이런 shuffling 작업과 이를 피하는 방법은 나중에 알아보자.
+
+#### union()
+
+- 양쪽의 데이터를 합해서 되돌려 줌 (합집합)
+- 다양한 경로에서 받은 로그들을 합치는 데 사용
+- 원본 데이터들이 중복 되더라도 중복을 유지함
+
+#### intersection() 
+
+- 양쪽 RDD에 동시에 존재하는 요소만 되돌려 줌 (교집합)
+- 동작하면서 모든 중복을 제거함
+  - 단일 RDD 안에 원래 존재하던 중복은 포함
+- 중복을 찾기 위해 distinct() 처럼 셔플링이 수반되므로, union() 보다 성능이 훨씬 떨어짐
+
+#### subtract()
+
+- 첫 번째 RDD의 항목 중 두 번째 RDD에 있는 항목을 제외한 항목들을 가진 RDD를 되돌려줌 (차집합) 
+- 셔플링을 수반되므로 성능이 떨어짐
+
+#### cartesian() (cartesian product, 카티시안 곱)
+
+- 첫 번째 RDD에 있는 데이터 a와 두 번째 RDD에 있는 데이터 b에 대해 모든 가능한 쌍 (a, b) 를 리턴
+- `select * from a,b`
+- 모든 사용자들에 대해 가능한 쌍들에 대한 유사성을 파악하고 싶은 경우에 이용
+- 동일 RDD에 대한 카티시안 곱도 가능
+  - 사용자 유사성을 위한 작업에 이용 가능
+- cost가 매우 크다
+
+#### {1, 2, 3, 3} 을 갖고 있는 RDD에 대한 기본 RDD 트랜스포메이션
+
+| 함수 이름                                 | 용도                                                         | 예시                      | 결과                  |
+| ----------------------------------------- | ------------------------------------------------------------ | ------------------------- | --------------------- |
+| map()                                     | RDD의 각 요소에 함수를 적용하고 결과 RDD를 되돌려 줌         | rdd.map(x => x + 1)       | {2, 3, 4, 4}          |
+| flatMap()                                 | RDD의 각 요소에 함수를 적용하고 반환된 반복자의 내용들로 이루어진 RDD를 되돌려 줌<br />종종 단어 분해를 위해 쓰임 | rdd.flatMap(x => x.to(3)) | {1, 2, 3, 2, 3, 3, 3} |
+| filter()                                  | filter()로 전달된 함수의 조건을 통과한 값으로만 이루어진 RDD를 되돌려 줌 | rdd.filter(x => x != 1)   | {2, 3, 3}             |
+| distinct()                                | 중복 제거                                                    | rdd.distinct()            | {1, 2, 3}             |
+| sample(withReplacement, fraction, [seed]) | 복원 추출(withReplacement=true)이나 비복원 추출로 RDD에서 표본을 뽑아낸다 | rdd.sample(false, 0.5)    | 생략                  |
+
+
+
+#### {1, 2, 3}과 {3, 4, 5}를 가진 두 RDD에 대한 트랜스포메이션
+
+| 함수 이름      | 용도                                                         | 예시                    | 결과                               |
+| -------------- | ------------------------------------------------------------ | ----------------------- | ---------------------------------- |
+| union()        | 두 RDD에 있는 데이터들을 합한 RDD를 생성한다                 | rdd.union(other)        | {1, 2, 3, 3, 4, 5}                 |
+| intersection() | 양쪽 RDD에 모두 있는 데이터들만을 가진 RDD를 반환한다        | rdd.intersection(other) | {3}                                |
+| subtract()     | 한 RDD가 가진 데이터를 다른쪽에서 삭제한다<br />ex) 교육용으로 썼던 데이터 삭제 | rdd.subtract(other)     | {1, 2}                             |
+| cartesian()    | 두 RDD의 카티시안 곱                                         | rdd.cartesian(other)    | {(1,3), (1,4), (1,5), ... , (3,5)} |
+
+
+
+### 액션
 
