@@ -2,9 +2,13 @@
 
 ### 학습 목표
 
-- 스파크의 데이터 작업을 위한 핵심 개념인 RDD (Resilient Distributed Dataset) 에 대해 알 수 있다.
-- RDD 생성, 연산을 할 수 있다.
-- 트랜스포메이션과 액션에 대해 알 수 있다.
+#### 1. 스파크의 데이터 작업을 위한 핵심 개념인 RDD (Resilient Distributed Dataset) 에 대해 알 수 있다.
+
+#### 2. RDD 생성, 연산을 할 수 있다.
+
+#### 3. 트랜스포메이션과 액션에 대해 알 수 있다.
+
+#### 4. persist() 에 대해 알 수 있다.
 
 
 
@@ -14,9 +18,9 @@
 
 
 
-### RDD
+### RDD (Resilient Distributed Dataset)
 
-- 분산되어 있는 변경 불가능한 객체 모음
+- **분산되어 있는 변경 불가능한 객체 모음**
 
 - 각 RDD는 클러스터의 서로 다른 노드들에서 연산 가능하도록 여러 개의 **파티션 (partition)** 으로 나뉨
 
@@ -486,3 +490,225 @@ words.first(); // "hello" 를 반환
 
 ### 액션
 
+#### reduce()
+
+- 인자로 두 개의 데이터를 합쳐 같은 타입 데이터 하나를 반환하는 함수를 받음
+- RDD의 총 합을 구하거나, 개수를 세거나 그 외 다른 타입의 집계 연산을 수행할 수 있음
+- 결과 타입이 RDD 내에서 연산하는 데이터 요소들의 타입과 동일해야 함
+
+#### 스칼라의 reduce()
+
+```scala
+val sum = rdd.reduce((x, y) => x + y)
+```
+
+#### 자바의 reduce()
+
+```java
+Integer sum = rdd.reduce(new Function2<Integer, Integer, Integer>() {
+	public Integer call(Integer x, Integer y) {
+		return x + y;
+	}
+});
+```
+
+
+
+#### fold()
+
+- reduce()에 전달되는 것과 동일한 형태의 함수 (두 개의 데이터를 합쳐 같은 타입 데이터 하나를 반환하는 함수)를 인자로 받음
+- 추가적으로, 각 파티션의 초기 호출에 쓰이는 "**zero value**" 를 인자로 받음
+  - 이 값은 수행하는 연산에 대한 기본값이어야 함
+  - 즉, 해당 값을 여러 번 적용해도 값이 바뀌지 않아야 함
+    - ex) 더하기를 위한 zero value 는 0, 곱하기를 위한 zero value는 1이어야 함, 리스트 연결 연산이라면 zero value는 빈 리스트
+
+- 결과 타입이 RDD 내에서 연산하는 데이터 요소들의 타입과 동일해야 함
+
+
+
+#### 만약, reduce() 와 fold() 를 사용하는데, 결과 값의 타입이 RDD 내에서 연산하는 데이터 요소들의 타입과 다른 경우
+
+- ex) 평균을 계산하는 경우, 합계와 각 요소의 개수를 쌍으로 관리하며 추적해야 하는 경우,
+  - `map()` 을 써서 각 요소를 원하는 형태인 쌍이 되도록  `(element, 1)` 식으로 바꾸면 `reduce()` 가 이 쌍들을 기반으로 동작할 수 있음
+- `aggregate()` 함수를 쓰면 RDD 에서 동일한 타입을 되돌려 주어야 한다는 제한에서 벗어날 수 있는데,
+
+#### aggregate()
+
+- fold() 함수 처럼 리턴 받는 타입에 맞는 zero value 가 필요
+- RDD의 값들을 누적 값에 연계해주는 함수가 필요하며, 각 노드에서 자체적으로  값들을 합칠 수 있도록 두 개의 누적값을 합쳐주는 두 번째 함수가 필요
+
+
+
+#### 스칼라에서의 aggregate()
+
+```scala
+val result = input.aggregate((0,0))(
+						(acc, value) => (acc._1 + value, acc._2 + 1),
+						(acc1, acc2) => (acc1._1 + acc2._1, acc1._2 + acc2._2))
+val avg = result._1 / result._2.toDouble
+```
+
+
+
+#### 자바에서의 aggregate()
+
+```java
+class AvgCount implements Serializable {
+	public AvgCount(int total, int num) {
+		this.total = total;
+		this.num = num;
+	}
+	
+	public int total;
+	public int num;
+	public double avg() {
+		return total / (double) num;
+	}
+}
+
+Function2<AvgCount, Integer, AvgCount> addAndCount = 
+	new Function2<AvgCount, Integer, AvgCount> () {
+		public AvgCount call(AvgCount a, Integer x) {
+			a.total += x;
+			a.num += 1;
+			return a;
+		}
+	};
+
+Function2<AvgCount, AvgCount, AvgCount> combine = 
+	new Function2<AvgCount, AvgCount, AvgCount>() {
+		public AvgCount call(AvgCount a, AvgCount b) {
+			a.total += b.total;
+			a.num += b.num;
+			return a;
+		}
+	};
+	
+AvgCount initial = new AvgCount(0, 0);
+AvgCount result = rdd.aggregate(initial, addAndCount, combine);
+System.out.println(result.avg());
+```
+
+- RDD의 몇 몇 액션은 드라이버 프로그램에 일반적인 컬렉션 타입 형태나 값을 되돌려 줌
+
+
+
+#### collect()
+
+- 드라이버 프로그램에 값을 되돌려 주는 가장 간단하고 일반적으로 많이 사용하는 연산
+
+- 데이터가 모두 드라이버 프로그램으로 copy 되므로  모든 데이터가 단일 컴퓨터에 메모리에 올라올 수 있어야 한다는 제약이 있음
+- 테스트나 디버깅에는 유용하지만, 많은 양의 데이터를 다루기에는 병목 현상을 일으킬 수 있어서 적합하지 않음
+
+
+
+#### take(n)
+
+- RDD에서 n 개의 데이터값을 되돌려 주는데 가능한 한 접근하는 파티션 개수를 최소화하도록 동작하므로 특정 파티션의 값들만 되돌려 줄 수 있음
+- **기대하는 순서대로 값을 되돌려주지 않음**
+- 테스트나 디버깅에는 유용하지만, 많은 양의 데이터를 다루기에는 병목 현상을 일으킬 수 있어서 적합하지 않음
+
+
+
+#### top()
+
+- 데이터에 특정 순서가 정의되어 있는 경우, RDD에서 상위의 값들만 뽑아 올 수 있음
+- default는 내림차순, 원하는 순서를 적용하려면 비교 함수를 넣어주면 된다
+
+
+
+#### {1, 2, 3, 3} 을 갖고 있는 RDD에 대한 기본 액션
+
+| 함수 이름                                | 목적                                   | 예시                           | 결과                     |
+| ---------------------------------------- | -------------------------------------- | ------------------------------ | ------------------------ |
+| collect()                                | RDD의 모든 데이터 요소 리턴            | rdd.collect()                  | {1, 2, 3, 3}             |
+| count()                                  | RDD의 요소 개수 리턴                   | rdd.count()                    | 4                        |
+| countByValue()                           | RDD에 있는 각 값의 개수 리턴           | rdd.countByValue()             | {(1, 1), (2, 1), (3, 2)} |
+| take(num)                                | RDD의 값들 중 num 개 리턴              | rdd.take(2)                    | {1, 2}                   |
+| top(num)                                 | RDD의 값들 중 상위 num개  리턴         | rdd.top(2)                     | {3, 3}                   |
+| takeOrdered(num)(ordering)               | 제공된 ordering 기준으로 num개 값 리턴 | rdd.takeOrdered(2)(myOrdering) | {3, 3}                   |
+| takeSample(withReplacement, num, [seed]) | 무작위 값들 리턴                       | rdd.takeSample(false, 1)       | 생략                     |
+| reduce(func)                             | RDD의 값들을 병렬로  병합 연산         | rdd.reduce((x,  y) => x + y)   | 9                        |
+| fold(zero)(func)                         | reduce()와 동일하나 zeroValue를 넣어줌 | rdd.fold(0)((x, y) => x + y)   | 9                        |
+
+#### {1, 2, 3, 3} 을 갖고 있는 RDD에 대한 기본 액션 (계속)
+
+| 함수 이름                           | 목적                                   | 예시                                                         | 결과   |
+| ----------------------------------- | -------------------------------------- | ------------------------------------------------------------ | ------ |
+| aggregate(zeroValue)(seqOp, combOp) | reduce()와 유사하나 다른 타입을 리턴함 | rdd.aggregate((0, 0))  ((x, y) => (x. _ 1 + y, x. _ 2 + 1), (x, y) => (x._1 + y. _1, x. _ 2 + y. _ 2)) | (9, 4) |
+| foreach(func )                      | RDD의 각 값에 func를 적용              | rdd.foreach(func)                                            | 없음   |
+
+
+
+###  RDD 타입 간 변환하기
+
+- 어떤 함수들은 특정한 타입의 RDD에서만 쓸 수 있음
+- ex) mean(), variance(), join() ...
+- 스칼라와 자바에서 이런 메소드들은 기본 RDD 클래스에는 정의되어 있지 않으므로, 이런 기능들을 사용하려면 제대로 특정 클래스를 받아 쓰고 있는지 확인해야 함
+
+
+
+#### 스칼라
+
+- 스칼라에서 특정 함수를 갖고 있는 RDD로 변환하는 것은 묵시적 변환에 의해 자동으로 동작함
+- 묵시적 변환을 위해 `import org.apache.spark.SparkContext._` 라인이 필요
+- 묵시적 변환은 `mean()` 이나 `variance()` 같은 것들을 쓸 수 있도록 RDD를 DoubleRDDFunctions (수치 데이터를 가진 RDD용) 나 PairRDDFunctions (키/ 값 페어를 위한 것들) 같은 다양한 포장 (wrapper) 클래스로 변환한다.
+
+
+
+## 6. 영속화 (캐싱)
+
+  스파크 RDD는 여유로운 방식으로 수행되지만, 때때로는 동일한 RDD를 여러 번 사용하고 싶을 때가 생긴다. 이를 별다른 조치 없이 시도한다면 스파크는 RDD와 RDD 에서 호출하는 액션들에 대한 모든 의존성을 재연산하게 된다. 이는 매우 무거운 작업이 될 수 있다.
+
+
+
+#### 스칼라에서의 반복 사용
+
+ ```scala
+ val result = input.map(x => x*x)
+ println(result.count())
+ println(result.collect().mkString(","))
+ ```
+
+- RDD를 여러 번 반복 연산하는 것을 피하려면 스파크에 데이터 영속화 (persist) 요청을 할 수 있다.
+- RDD persist 요청을 하면, RDD를 계산한 노드들은 그 파티션을 저장하고 있게 되며, 
+- 영속화된 데이터를 갖고 있는 노드에 장애가 생기면 스파크는 필요 시에 유실된 데이터 파티션을 재연산한다.
+
+
+
+#### 스파크에서 제공하는 영속화 수준
+
+- 스칼라와 자바에서는 기본적으로 `persist()` 가 데이터를 JVM heap에 직렬화되지 않은 객체 형태로 저장함
+
+| 레벨                | 공간 사용 | CPU 사용 시간 | 메모리에 저장 | 디스크에 저장 | 비고                                                         |
+| ------------------- | --------- | ------------- | ------------- | ------------- | ------------------------------------------------------------ |
+| MEMORY_ONLY         | 높음      | 낮음예        | 예            | 아니오        |                                                              |
+| MEMORY_ONLY_SER     | 낮음      | 높음          | 예            | 아니오        |                                                              |
+| MEMORY_AND_DISK     | 높음      | 중간          | 일부          | 일부          | 메모리에 넣기에 데이터가 너무 많으면 디스크에 나눠 저장.     |
+| MEMORY_AND_DISK_SER | 낮음      | 높음          | 일부          | 일부          | 메모리에 넣기에 데이터가 너무 많으면 디스크에 나너ㅜ 저장.<br />메모리에 직렬화된 형태로 저장 |
+| DISK_ONLY           | 낮음      | 높음          | 아니오        | 예            |                                                              |
+
+
+
+#### 스칼라에서의 persist()
+
+```scala
+import org.apache.spark.storage.StorageLevel
+val result = input.map(x => x * x)
+result.persist(StorageLevel.DISK_ONLY)
+println(result.count())
+println(result.collect().mkString(","))
+```
+
+- 처음 액션을 수행하기 전에 persist() 를 호출하였다
+- persist() 호출은 연산을 강제로 수행하지는 않는다
+
+
+
+- 만약, 메모리에 많은 데이터를 올리려고 시도하면, 스파크는 LRU (Least Recently Used) 캐시 정책에 따라 오래된 파티션들을 자동으로 버린다
+
+
+
+## Reference
+
+- 홀든 카로, 앤디 콘빈스키, 패트릭 웬델, 마테이 자하리아, 『러닝 스파크』, 제이펍(2015), p.29~ p.57
