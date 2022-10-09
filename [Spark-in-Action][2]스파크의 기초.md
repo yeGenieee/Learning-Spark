@@ -144,3 +144,16 @@
 ![take_01](images/2022/10/take-01.png)
 
 ---
+
+## 3. RDD의 action 연산자
+- 연산자를 호출한 프로그램으로 연산 결과를 return 하거나 RDD 요소에 특정 작업을 수행하려고 실제 계산을 시작하는 역할을 하는 연산자
+   - ex) count, foreach
+
+---
+
+## 4. Lazy evaluation (지연 실행)
+- 스파크에서 transformation 연산자는 지연 실행되는데, **action** 연산자를 호출하기 전까지는 transformation 연산자의 계산을 **실제로 실행하지 않는 것**을 의미한다.
+- RDD에 action 연산자가 호출되면 스파크는 그 때 RDD Lineage (계보)를 살펴보고, 이를 바탕으로 실행해야 하는 **연산 그래프**를 작성해서 action 연산자를 계산한다.
+- 결국, transformation 연산자는 Action 연산자를 호출했을 때, 무슨 연산이 어떤 순서로 실행되어야 하는지를 알려주는 일종의 `설계도` 이다.
+
+--- 
