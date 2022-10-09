@@ -14,7 +14,7 @@
 ### 특징
 1. Immutable (불변성) : Read-only
    - RDD는 데이터를 조작할 수 있는 다양한 `transformation(변환)` 연산자를 제공하는데, `transformation` 연산자는 항상 새로운 RDD객체를 생성한다.
-  - 즉, 한 번 생성된 RDD는 **절대 바뀌지 않는다**.
+   - 즉, 한 번 생성된 RDD는 **절대 바뀌지 않는다**.
 2. Resilient (복원성) : Fault tolerance
    - 노드에 장애가 발생해도 유실된 RDD를 원래대로 복구할 수 있다.
 
@@ -102,3 +102,45 @@
 - `ids` RDD의 요소를 `Int` 타입으로 변환 후, 중복 요소를 제거해보자.
 ![transformation_distinct_01](images/2022/10/transformation-distinct-01.png)
 - 최소 한 번 이상 상품을 구매한 고객이 총 8명이며, 전체 구매 횟수는 14회라는 것을 알아냈다.
+
+### 3. sample, take, takeSample
+#### sample
+- `sample` : 호출된 RDD에서 무작위로 요소를 뽑아서 새로운 RDD를 만드는 transformation 연산자
+- *sample method signature*
+  ```scala
+  def sample(withReplacement: Boolean, fraction: Double, seed: Long = Utils.random.nextLong): RDD[T]
+  ```
+   - `withReplacement` : 같은 요소가 여러번 샘플링 될 수 있는지 지 (false면 한 번 샘플링 된 요소는 메서드 호출이 끝날 때까지 다음 샘플링 대상에서 제외됨)
+
+       > - Sampling with replacement (복원 샘플링)
+       >     - 물고기를 한 마리 잡아서 크기를 재고, 다음 물고기를 잡기 전에 이 물고기를 물로 되돌려 보내는 것과 같음 (같은 물고기를 여러 번 잡을 가능성이 있음)
+       > - Sampling without replacement (비복원 샘플링)
+       >     - 잡은 물고기는 되돌려보내지 않는 경우 (같은 물고기를 여러 번 잡지 않음)
+
+   - `fraction` : 복원 샘플링에서는 각 요소가 샘플링 될 횟수의 기댓값 (0 이상의 값), 비복원 샘플링에서는 각 요소가 샘플링 될 기대 확률 (0 ~ 1 사이의 부동소수점 숫자)
+   - `seed` : 난수 생성에 이용
+
+![sample_01](images/2022/10/sample-01.png)
+![sample_02](images/2022/10/sample-02.png)
+
+#### takeSample
+- 확률 값 대신 정확한 개수로 RDD의 요소를 샘플링하는 경우 이용하는 action 연산자
+- *takeSample method signature*
+   ```Scala
+   def takeSample(withReplacement: Boolean, num: Int, seed: Long = Utils.random.nextLong): Array[T]
+   ```
+   - `num` : 샘플링 결과로 반환될 요소의 개수를 지정하는 변수 (요소 개수의 기대값이 아니라 항상 정확한 개수로 샘플링하게 된다)
+   - takeSample은 *action* 연산자이다. sample은 transformation 연산자이다.
+
+![takeSample](images/2022/10/takesample.png)
+
+#### take
+- 지정된 개수의 요소를 모을 때까지 RDD의 파티션 (클러스터의 여러 노드에 저장된 데이터의 일부분)을 하나씩 처리해서 결과를 반환한다.
+   - 파티션을 하나씩 처리한다는 말은 연산이 `전혀 분산되지 않는다`는 의미
+   - 여러 파티션의 요소를 빠르게 가져오고 싶다면 드라이버의 메모리를 넘지 않도록 요소 개수를 줄이고 collect 연산자를 사용해야 한다.
+- RDD의 데이터를 살짝 엿보는 데 자주 사용한다.
+- take 메서드의 결과는 단일 머신에 전송되므로 인자에 너무 큰 수를 지정해서는 안된다.
+
+![take_01](images/2022/10/take-01.png)
+
+---
