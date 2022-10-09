@@ -1,11 +1,12 @@
 # Spark의 기초
-
+---
 ## 학습목표
 1. RDD
 2. RDD의 transformation 연산자
 3. RDD의 action 연산자
 4. lazy evaluation
 
+---
 ## 1. RDD
 - Resilient Distributed Dataset
 - 스파크 전용 분산 컬렉션, 스파크의 기본 추상화 객체
@@ -16,6 +17,7 @@
   - 즉, 한 번 생성된 RDD는 **절대 바뀌지 않는다**.
 2. Resilient (복원성) : Fault tolerance
    - 노드에 장애가 발생해도 유실된 RDD를 원래대로 복구할 수 있다.
+
         > 어떻게 복구할 수 있는 것인지?
           - 일반적인 분산 프레임워크 : Replica를 가져와서 데이터를 복원한다.
           - Spark의 RDD : 데이터셋을 만드는 데 사용된 transformation(변환) 연산자의 로그를 남기므로, <br> 이 로그를 이용해서 해당 노드가 가진 데이터셋만 다시 계산해서 RDD를 복원한다. (데이터셋의 replica를 저장하는 방법이 아니다)
@@ -24,20 +26,22 @@
 ## 목적
 - 분산 컬렉션의 성질과 fault-tolerance를 추상화하고 직관적인 방식으로 대규모 데이터셋에 병렬 연산을 수행할 수 있도록 한다.
 
+---
+
 ## 2. RDD의 transformation 연산자
 - RDD 연산자는 transformation / action 두 유형의 연산자로 나뉜다.
 - transformation 연산자는 RDD의 데이터를 조작해서 새로운 RDD를 생성한다.
 
 ### 1. map
 - 원본 RDD의 요소를 변환한 후 변환된 요소로 새로운 RDD를 생성하는 transformation 연산자
-- map method signature
-```Scala
-class RDD[T] { // RDD는 타입 매개변수 T를 가진 클래스로 정의
-  // other methods
-  def map[U](f: (T) => U): RDD[U] // map 함수는 또 다른 함수(f: (T) => U) 를 인자로 받아서 이 RDD와는 다른 타입(U)의 RDD를 return한다
-  // other methods
-}
-```
+- *map method signature*
+    ```Scala
+    class RDD[T] { // RDD는 타입 매개변수 T를 가진 클래스로 정의
+      // other methods
+      def map[U](f: (T) => U): RDD[U] // map 함수는 또 다른 함수(f: (T) => U) 를 인자로 받아서 이 RDD와는 다른 타입(U)의 RDD를 return한다
+      // other methods
+    }
+    ```
 - 또 다른 함수를 인자로 받아서 RDD 하나를 반환한다, map 함수가 반환하는 RDD는 map 함수가 호출된 RDD와는 다른 타입의 요소일 수도 있다.
 
 #### map 을 이용해 RDD 요소의 제곱 값을 계산하는 예제
@@ -51,9 +55,50 @@ class RDD[T] { // RDD는 타입 매개변수 T를 가진 클래스로 정의
 ![transformation_map_03](images/2022/10/transformation-map-03.png)
 - placeholder를 이용하여 더 간결하게 작성
 ![transformation_map_04](images/2022/10/transformation-map-04.png)
+
 > #### placeholder syntax (위치 표시자 구문)
 > - `_(underscore)`를 이용하여, 함수 호출과 함께 전달되는 인수가 차리할 자리를 미리 선점
 > - 위의 예제에서는 이 함수가 호출될 때 인자로 전달된 객체가 무엇이든 이 객체의 toString -> reverse를 호출하라는 의미 !
 
-### 2. distinct & flatMap
--
+### 2. flatMap & distinct
+#### flatMap
+- `map` : 원본 RDD의 요소를 변환해서 새로운 RDD를 생성하는 transformation 연산자
+- `flatMap` : 반환한 여러 배열의 모든 요소를 단일 배열로 return 하는 transformation 연산자
+    - 주어진 함수를 RDD의 모든 요소에 적용한다는 점은 map과 동일하지만, 익명 함수가 반환한 배열의 중첩 구조를 한 단계 제거하고 모든 배열의 요소를 **단일 컬렉션으로 병합** 한다는 특징이 있다.
+- *flatmap method signature*
+    ```Scala
+    def flatMap[U](f: (T) => TraversableOnce[U]): RDD[U]
+    ```
+
+
+#### distinct
+- 중복 요소를 제거한 새로운 RDD를 반환한다.
+- 해당 RDD의 고유 요소로 새로운 RDD를 생성하는 transformation 연산자
+- *distinct method signature*
+    ```Scala
+    def distinct(): RDD[T]
+    ```
+
+#### 최소 한 번 이상 상품을 구매한 고객을 확인하는 예제
+- `~/client-ids.log` 파일에 고객의 구매 이력(구매 고객의 id)이 담겨있다.
+- 로그 파일을 스파크로 로드한다.
+![transformation_flatmap_01](images/2022/10/transformation-flatmap-01.png)
+- 로그 파일의 각 줄을 쉼표로 분리해서 문자열 배열을 생성한다.
+![transformation_flatmap_02](images/2022/10/transformation-flatmap-02.png)
+- 출력해보면, 고객 ID의 배열로 RDD가 구성된 것을 알 수 있다.
+![transformation_flatmap_03](images/2022/10/transformation-flatmap-03.png)
+
+> collect (Action 연산자)
+> - 새로운 배열을 생성해서, RDD의 모든 요소를 이 배열에 모아서 return하는 연산자
+
+- 이상하다. 배열의 배열을 **단일배열**로 분해해서 한 번에 리턴하려면?
+- **flatMap** 을 쓰자
+![transformation_flatmap_04](images/2022/10/transformation-flatmap-04.png)
+- 단일 배열이 반환되는 것을 확인할 수 있다.
+
+> mkString (scala Array class method)
+> - 배열의 모든 요소를 문자열 하나로 병합, 메서드에 전달한 인수는 문자열의 separator로 사용한다.
+
+- `ids` RDD의 요소를 `Int` 타입으로 변환 후, 중복 요소를 제거해보자.
+![transformation_distinct_01](images/2022/10/transformation-distinct-01.png)
+- 최소 한 번 이상 상품을 구매한 고객이 총 8명이며, 전체 구매 횟수는 14회라는 것을 알아냈다.
