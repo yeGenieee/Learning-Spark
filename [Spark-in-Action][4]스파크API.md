@@ -67,3 +67,14 @@ object PurchaseEvent {
 - 상품 ID 25번을 두 개 이상 구매하면 청구 금액을 5% 할인해주기
     ![mapValues](images/2022/10/mapvalues.png)
      - 조건에 맞으면 배열을 변경하여 return 한다
+
+### flatMapValues 변환 연산자로 Key에 Value 추가하기
+- **`flatMapValues`** transformation 연산자는 각 key 값을 0개 또는 1개 이상의 값으로 매핑하여 RDD에 포함된 요소 개수를 변경한다
+- 즉, 키에 새로운 값을 추가하거나 키 값을 모두 제거할 수 있다
+- 함수가 반환한 컬렉션 값들을 원래 키와 합쳐서 새로운 key-value 쌍으로 생성한다
+<br/><br/>
+- return 시, 빈 컬렉션을 반환하면 -> 해당 key-value를 RDD에서 제거하고,
+- 컬렉션에 두 개 이상의 값을 넣어서 return하면 -> 결과 Pair RDD에 이를 추가한다
+- 상품 ID 81번을 5권 이상 구매한 고객에게 사은품으로 상품 ID 70번을 보내기 (구매 기록 추가)
+   ![flatMapValues](images/2022/10/flatmapvalues.png)
+   - 구매 기록 배열을 복제하여, 원래 요소와 추가한 요소를 같이 반환하여 구매 기록을 추가한다

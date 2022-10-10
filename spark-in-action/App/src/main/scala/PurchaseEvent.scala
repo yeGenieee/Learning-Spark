@@ -23,6 +23,18 @@ object PurchaseEvent {
         tx(5) = (tx(5).toDouble * 0.95).toString
       tx
     })
+
+    transByCustomer = transByCustomer.flatMapValues(tx => {
+      if (tx(3).toInt == 81 && tx(4).toDouble >= 5) {
+        val cloned = tx.clone()
+        cloned(5) = "0.00"; cloned(3) = "70"; cloned(4) = "1";
+        List(tx, cloned)
+      } else {
+        List(tx)
+      }
+    })
+
+    
   }
 
 }
