@@ -17,6 +17,12 @@ object PurchaseEvent {
     var complimentTransactions = Array(Array("2015-03-30", "11:59 PM", "53", "4", "1", "0.00")) // 사은품 추가 구매 기록 저장
 
     transByCustomer.lookup(customerId).foreach(tx => println(tx.mkString(", ")))
+
+    transByCustomer = transByCustomer.mapValues(tx => {
+      if (tx(3).toInt == 25 && tx(4).toDouble > 1)
+        tx(5) = (tx(5).toDouble * 0.95).toString
+      tx
+    })
   }
 
 }

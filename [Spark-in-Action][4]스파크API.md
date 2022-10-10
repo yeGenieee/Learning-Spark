@@ -63,3 +63,7 @@ object PurchaseEvent {
     ![lookup](images/2022/10/lookup.png)
 
 ### mapValues 변환 연산자로 Pair RDD 값 바꾸기
+- **`mapValues`** transformation 연산자를 이용하여 Key를 변경하지 않고 Pair RDD에 포함된 Value만 변경할 수 있다.
+- 상품 ID 25번을 두 개 이상 구매하면 청구 금액을 5% 할인해주기
+    ![mapValues](images/2022/10/mapvalues.png)
+     - 조건에 맞으면 배열을 변경하여 return 한다
