@@ -15,6 +15,8 @@ object PurchaseEvent {
 
     val (customerId, purchase) = transByCustomer.countByKey().toSeq.sortBy(_._2).last // 구매 횟수가 가장 많았던 고객 찾기
     var complimentTransactions = Array(Array("2015-03-30", "11:59 PM", "53", "4", "1", "0.00")) // 사은품 추가 구매 기록 저장
+
+    transByCustomer.lookup(customerId).foreach(tx => println(tx.mkString(", ")))
   }
 
 }

@@ -57,3 +57,9 @@ object PurchaseEvent {
 
 
 ### 단일 키로 값 찾기
+- **`lookup`** 라는 action 연산자를 이용하여 key에 해당하는 값들을 모두 가져올 수 있다.
+- lookup 연산자는 결과 값을 Driver로 전송하므로, 이를 메모리에 적재할 수 있는지 먼저 확인해야 한다.
+- 사은품을 받을 고객의 구매 내역 뽑아보기
+    ![lookup](images/2022/10/lookup.png)
+
+### mapValues 변환 연산자로 Pair RDD 값 바꾸기
