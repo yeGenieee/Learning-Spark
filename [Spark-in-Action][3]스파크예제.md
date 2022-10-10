@@ -69,3 +69,13 @@ $ wget http://data.githubarchive.org/2022-09-01-{0..23}.json.gz
        }
    }
    ```
+![print_result](images/2022/10/print-result.png)
+- json 메서드가 유추한 JSON 스키마를 확인할 수 있다.
+- 이 스키마는 JSON 파일에 사용된 모든 key의 합집합으로 구성되며, 각 키에는 각 값 타입과 널 값 허용 여부 (nullable)가 할당되어 있다.
+   - 유추된 스키마에는 널 값 허용 여부가 항상 `true`로 할당된다.
+
+![all_event_count](images/2022/10/all-event-count.png)
+![only_pushes_count](images/2022/10/only-pushes-count.png)
+
+- DataFrame의 상위 5개 출력 결과를 확인할 수도 있다.
+  ![df_show](images/2022/10/df-show.png) 

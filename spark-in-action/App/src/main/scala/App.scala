@@ -15,7 +15,10 @@ object App {
 
     val pushes = ghLog.filter("type = 'PushEvent'")
 
-    println(pushes.count())
+    pushes.printSchema()
+    println("all events : " + ghLog.count())
+    println("only pushes : " + pushes.count())
+    pushes.show(5)
   }
 
 }
