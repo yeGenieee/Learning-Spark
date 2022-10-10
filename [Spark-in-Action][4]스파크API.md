@@ -46,3 +46,14 @@ object PurchaseEvent {
     ![distinct_customer_id_count](images/2022/10/distinct-customer-id-count.png)
 
 ### 키 별 개수 세기
+- **`countByKey`** 라는 action 연산자를 이용하여 각 키의 출현 횟수를 Map 형태로 반환한다. action 연산자는 연산 결과를 즉시 객체로 반환한다.
+   ![countByKey](images/2022/10/countbykey.png)
+
+- 가장 많이 구매한 고객에게 곰인형을 사은품으로 발송해야 하므로, 가장 많이 구매한 고객을 찾아보자
+   ![most_purchased_customer](images/2022/10/most-purchased-customer.png)
+
+- 사은품을 발송하는 행위도 거래 내역에 추가해야하므로, String 배열 형태로 저장한다.
+  ![complimentaryTransactions](images/2022/10/complimentarytransactions.png)
+
+
+### 단일 키로 값 찾기
