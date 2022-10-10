@@ -45,6 +45,13 @@ object PurchaseEvent {
     transByCustomer.map(t => t._2.mkString("#"))
       .saveAsTextFile("ch04_output_transByCustomer")
 
+    val prods = transByCustomer.aggregateByKey(List[String]())(
+      (prods, tx) => prods ::: List(tx(3)),
+      (prods1, prods2) => prods1 ::: prods2
+    )
+
+    prods.collect()
+
   }
 
 }
