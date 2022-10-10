@@ -152,3 +152,5 @@ Temporary Items
 ../.gitattributes
 project/
 ../.idea/
+
+app/src/main/resources/2022-09-01-*.json
