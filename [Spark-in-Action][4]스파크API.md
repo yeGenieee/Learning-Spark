@@ -13,6 +13,8 @@
 - Scala와 Java에서는 **map**이라고 한다.
 - Spark 에서는 Key-Value 쌍으로 구성된 RDD를 **PairRDD**라고 한다.
 
+---
+
 ## 2. Pair RDD 생성 & 구매 고객에 대한 분석 예제
 - PairRDD 함수는 `PairRDDFunctions` 클래스에 정의되어 있다.
 
@@ -103,3 +105,58 @@ object PurchaseEvent {
 - 고객 ID를 키로 설정하고, 구매 기록을 값으로 만들어서 RDD에 추가한 후 결과를 새로운 파일에 저장하기
     ![saveAsTextFile](images/2022/10/saveastextfile.png)
     ![outputfileresult](images/2022/10/outputfileresult.png)
+
+---
+
+## 3. 데이터 파티셔닝을 이해하고 데이터 셔플링 최소화
+### Partitioning
+- 데이터를 여러 클러스터 노드로 분할하는 메커니즘
+- 스파크의 성능과 리소스 점유량을 크게 좌우할 수 있는 RDD의 가장 기본적인 개념
+
+#### RDD Partition
+- RDD 데이터의 일부를 의미하며,
+- 텍스트 파일을 스파크에 로드하면, 스파크는 파일 내용을 여러 파티션으로 분할해서 클러스터 노드에 분산 저장한다.
+- 이렇게 분산된 파티션이 모여서 하나의 RDD를 형성한다.
+
+- RDD의 파티션 목록
+  - RDD의 `partitions` 필드로 제공되는데, 이 필드는 Array이 타입이어서 `partitions.size` 가 바로 파티션 개수이다
+
+- 스파크에서는 RDD의 파티션 개수가 중요한데, 파티션 개수가 데이터를 클러스터에 분배하는 과정에서 영향을 미치기도 하지만, 해당 RDD에 변환 연산을 실행할 태스크 개수와 직결되기 때문에 중요하다
+- 태스크 개수가 필요 이하로 적으면 클러스터를 충분히 활용할 수 없다.
+    - 각 태스크가 처리할 데이터 분량이 executor의 메모리 리소스를 초과하면 메모리 문제가 발생할 수 있다.
+- 파티션의 개수는 클러스터의 코어 개수보다 3~4배 많게 지정하면 좋다.
+- 태스크가 너무 많으면 태스크 관리 작업에 병목이 발생하므로, 너무 큰 값 또한 올바르지 않다.
+
+### Spark의 데이터 Partitioner
+- RDD의 데이터 파티셔닝은 RDD의 각 요소에 파티션 번호를 할당하는 `Partitioner` 객체가 수행한다.
+- Spark에서는 Partitioner의 구현체로, `HashPartitioner`와 `RangePartitioner` 그리고 사용자 정의 `Partitioner`를 이용한다.
+
+#### 1. HashPartitioner
+- 스파크의 기본 Partitioner로, 각 요소의 자바 hash code(Pair RDD는 key의 hashcode)를 **mod 공식**에 대입해서 파티션 번호를 계산한다
+    - partitionIndex = hashCode % numberOfPartitions
+- 각 요소의 파티션 번호를 거의 무작위로 결정하기 때문에, **모든 파티션을 정확하게 같은 크기로 분할할 가능성은 낮다**
+- 하지만, 대규모 데이터셋을 상대적으로 적은 수의 파티션으로 나누게 되면, 대체로 데이터를 고르게 분산시킬 수 있다
+- 파티션의 기본 개수 = `spark.default.parallelism` 값
+    - 해당 값 지정하지 않으면, 클러스터의 코어 개수를 파티션의 기본 개수로 사용한다
+
+#### 2. RangePartitioner
+- 정렬된 RDD의 데이터를 거의 같은 범위로 분할할 수 있다
+- 잘 사용하지 않는다
+
+#### 3. Pair RDD의 사용자 정의 Partitioner
+- 파티션의 데이터를 특정 기준에 따라 정확하게 배치해야 할 경우 사용한다
+- ex) 각 태스크가 특정 key-value 데이터만 처리해야 할 때 (ex) 특정 데이터가 단일 db, 단일 db table 에 속하는 경우)
+- Pair RDD에만 사용할 수 있고, Pair RDD의 transformation 연산자 호출 시 사용자 정의 Partitioner를 인수로 전달한다.
+  ```Scala
+  rdd.foldByKey(afunction, 100)
+  rdd.foldByKey(afunction, new HashPartitioner(100))
+  ```
+
+- Pair RDD transformation 연산자 호출 시 Partitioner를 지정하지 않으면, 스파크는 부모 RDD에 지정된 파티션 개수 중에 가장 큰 수를 이용한다
+  - 부모 RDD가 없으면, `spark.default.parallelism` 에 지정된 파티션 개수로 HashPartitioner를 사용한다
+  > 부모 RDD
+  > - 현재 RDD를 만드는 데 사용한 RDD들
+
+---
+
+## 4. 불필요한 셔플링 줄이기
