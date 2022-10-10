@@ -34,7 +34,17 @@ object PurchaseEvent {
       }
     })
 
-    
+    val amounts = transByCustomer.mapValues(tx => tx(5).toDouble)
+    val totals = amounts.foldByKey(0)((p1, p2) => p1 + p2).collect()
+    println(totals.toSeq.sortBy(_._2).last)
+
+    complimentTransactions = complimentTransactions :+ Array("2015-03-30", "11:59 PM", "76", "63", "1", "0.00")
+
+    transByCustomer = transByCustomer.union(sc.parallelize(complimentTransactions.map(t => (t(2).toInt, t))))
+
+    transByCustomer.map(t => t._2.mkString("#"))
+      .saveAsTextFile("ch04_output_transByCustomer")
+
   }
 
 }

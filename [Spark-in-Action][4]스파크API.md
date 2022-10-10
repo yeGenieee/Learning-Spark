@@ -78,3 +78,28 @@ object PurchaseEvent {
 - 상품 ID 81번을 5권 이상 구매한 고객에게 사은품으로 상품 ID 70번을 보내기 (구매 기록 추가)
    ![flatMapValues](images/2022/10/flatmapvalues.png)
    - 구매 기록 배열을 복제하여, 원래 요소와 추가한 요소를 같이 반환하여 구매 기록을 추가한다
+
+### reduceByKey, foldByKey 를 이용하여 키의 모든 값들을 merge
+- **`foldByKey`** 를 이용하여 각 키의 모든 값들을 동일한 타입의 단일 값으로 병합할 수 있다
+- *foldByKey method signature*
+    ```Scala
+    foldByKey(zeroValue: V)(func: (V, V) => V): RDD[(K,V)]
+    ```
+    - zeroValue는 반드시 항등원이어야 한다 (덧셈 : 0, 곱셈 : 1, 리스트 연산 : Nil)
+    - `zeroValue` : 가장 먼저 func 함수로 전달해서 key의 첫번째 값과 merge, 이 결과를 다시 key의 두 번째 값과 merge 한다
+    - RDD 연산이 병렬로 실행되기 때문에 `zeroValue`가 여러 번 쓰일 수 있다는 것에 주의해야 한다
+<br/><br/>
+- 가장 많은 금액을 지출한 고객을 찾기
+   ![foldByKey](images/2022/10/foldbykey.png)
+   - transByCustomer에 저장된 구매 기록은 문자열 배열이기 때문에, 금액 정보만 포함하도록 데이터를 매핑한 후 foldByKey를 사용한다.
+   ![result](images/2022/10/result.png)
+   <br/><br/>
+   - 만약, zeroValue를 100000으로 지정하면, zeroValue가 결과값에 여러번 (**RDD 파티션 개수만큼**) 더해지게 된다
+       <br/> ![zeroValueResult](images/2022/10/zerovalueresult.png)
+       <br/><br/>
+- 사은품 구매 기록 추가 (complimentTransactions 에 추가)
+    ![add](images/2022/10/add.png)
+<br/><br/>
+- 고객 ID를 키로 설정하고, 구매 기록을 값으로 만들어서 RDD에 추가한 후 결과를 새로운 파일에 저장하기
+    ![saveAsTextFile](images/2022/10/saveastextfile.png)
+    ![outputfileresult](images/2022/10/outputfileresult.png)
