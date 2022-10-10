@@ -12,7 +12,8 @@
 $ cd ~/Desktop/Learning-Spark/spark-in-action/app/src/main/resources
 $ wget http://data.githubarchive.org/2022-09-01-{0..23}.json.gz
 ```
-![donwload_log_file](images/2022/10/donwload-log-file.png)
+
+![download_log](images/2022/10/download-log.png)
 
 - 파일 압축을 해제한다
 ![gunzip](images/2022/10/gunzip.png)
