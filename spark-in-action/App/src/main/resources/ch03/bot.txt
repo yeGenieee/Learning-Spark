@@ -1,0 +1,4 @@
+github-actions[bot]
+LombiqBot
+renovate[bot]
+pull[bot]

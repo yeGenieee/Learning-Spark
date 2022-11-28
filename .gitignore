@@ -1,0 +1,3 @@
+spark-in-action/.idea/
+spark-in-action/.gitattributes
+spark-in-action/app/src/main/resources/ch03/*.json
